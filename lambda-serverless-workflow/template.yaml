@@ -1,0 +1,172 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  lambda-serverless-workflow
+
+  Sample SAM Template for lambda-serverless-workflow
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+
+Resources:
+  LambdaLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: Serverless-workflow-layer
+      Description: Layer for pandas, numpy, requests and os libraries.
+      ContentUri: ./Layers
+      CompatibleRuntimes:
+        - python3.8
+        - python3.9
+      RetentionPolicy: Retain
+
+  ServerlessWorkflow:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: 'Serverless-Workflow-Lambda'
+      CodeUri: hello_world/
+      Handler: app.lambda_handler
+      Role: !GetAtt ServerlessWorkflowRole.Arn
+      Runtime: python3.8
+      Timeout: 220
+      MemorySize: 512
+      Events:
+        HelloWorld:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /hello
+            Method: get
+
+  DynamoDBStreamFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      FunctionName: 'DynamoDB-Stream-Lambda'
+      CodeUri: hello_world/
+      Handler: stream.lambda_handler
+      Role: !GetAtt DynamoDBStreamRole.Arn
+      Runtime: python3.8
+      Timeout: 220
+      MemorySize: 512
+  
+  ServerlessWorkflowRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      RoleName: Serverless-Workflow-Role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: Serverless-Workflow-Policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow 
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+              - Effect: "Allow"
+                Action:
+                  - dynamodb:DeleteItem
+                  - dynamodb:DescribeTable
+                  - dynamodb:GetItem
+                  - dynamodb:GetRecords
+                  - dynamodb:ListTables
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:PutItem
+                  - dynamodb:CreateTable
+                Resource: "*"
+  
+  DynamoDBStreamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      RoleName: DynamoDB-Stream-Lambda-Role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DynamoDB-Stream-Lambda-Policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow 
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+              - Effect: "Allow"
+                Action:
+                  - dynamodb:DeleteItem
+                  - dynamodb:DescribeTable
+                  - dynamodb:DescribeStream
+                  - dynamodb:GetItem
+                  - dynamodb:GetSharedIterator
+                  - dynamodb:GetRecords
+                  - dynamodb:ListStreams
+                  - dynamodb:ListShards
+                  - dynamodb:ListTables
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource: "*"
+
+  
+
+  
+  ServerlessWorkflowTable:
+    Type: 'AWS::DynamoDB::Table'
+    DeletionPolicy: Retain
+    Properties:
+      TableName: stockprices
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      AttributeDefinitions:
+        -
+          AttributeName: ticker
+          AttributeType: S
+        -
+          AttributeName: timestamp
+          AttributeType: N
+      KeySchema:
+        -
+          AttributeName: ticker
+          KeyType: HASH
+        -
+          AttributeName: timestamp
+          KeyType: RANGE
+
+  DynamoDBTableStream:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      # The maximum number of DB items to send to Lambda
+      BatchSize: 100  # It can be changed based on the need
+      Enabled: True
+      EventSourceArn: !GetAtt ServerlessWorkflowTable.StreamArn
+      FunctionName: !GetAtt DynamoDBStreamFunction.Arn
+      # Always start at the tail of the Stream
+      StartingPosition: LATEST
+
+Outputs:
+  HelloWorldFunction:
+    Description: "Hello World Lambda Function ARN"
+    Value: !GetAtt ServerlessWorkflow.Arn
+  HelloWorldFunctionIamRole:
+    Description: "Implicit IAM Role created for Hello World function"
+    Value: !GetAtt ServerlessWorkflowRole.Arn
