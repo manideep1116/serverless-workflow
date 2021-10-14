@@ -32,12 +32,6 @@ Resources:
       Runtime: python3.8
       Timeout: 220
       MemorySize: 512
-      Events:
-        HelloWorld:
-          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
-          Properties:
-            Path: /hello
-            Method: get
 
   DynamoDBStreamFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
@@ -117,13 +111,18 @@ Resources:
                   - dynamodb:DescribeTable
                   - dynamodb:DescribeStream
                   - dynamodb:GetItem
-                  - dynamodb:GetSharedIterator
+                  - dynamodb:GetShardIterator
                   - dynamodb:GetRecords
                   - dynamodb:ListStreams
                   - dynamodb:ListShards
                   - dynamodb:ListTables
                   - dynamodb:Query
                   - dynamodb:Scan
+                Resource: "*"
+              - Effect: Allow 
+                Action:
+                  - ses:SendEmail
+                  - ses:SendRawEmail
                 Resource: "*"
 
   
@@ -133,6 +132,8 @@ Resources:
     Type: 'AWS::DynamoDB::Table'
     DeletionPolicy: Retain
     Properties:
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       TableName: stockprices
       ProvisionedThroughput:
         ReadCapacityUnits: 5

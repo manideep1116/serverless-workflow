@@ -18,39 +18,6 @@ def prices(tickers):
         fav_stocks[symbol] = round(price,2)
     return(fav_stocks)
 
-def create_table(table_name):
-    dynamodb = boto3.resource('dynamodb')
-    
-    table = dynamodb.create_table(
-        TableName= table_name,
-        KeySchema=[
-            {
-                'AttributeName': 'ticker',
-                'KeyType': 'HASH'
-            },
-            {
-                'AttributeName': 'timestamp',
-                'KeyType': 'RANGE'
-            }
-        ],
-        AttributeDefinitions=[
-            {
-                'AttributeName': 'ticker',
-                'AttributeType': 'S'
-            },
-            {
-                'AttributeName': 'timestamp',
-                'AttributeType': 'N'
-            },
-        ],
-        ProvisionedThroughput={
-            'ReadCapacityUnits': 5,
-            'WriteCapacityUnits': 5,
-        }
-    )
-
-    print("Table status:", table.table_status)
-
 def add_item(item):
     ddb_data= json.loads(json.dumps(item), parse_float=Decimal)
     dynamodb = boto3.resource('dynamodb') 
@@ -64,21 +31,7 @@ def add_item(item):
             }
         )
     return response
-
-def query_prices(id):
- 
-    dynamodb = boto3.resource('dynamodb')
-
-    table = dynamodb.Table(table_name)
-    response = table.query(
-        KeyConditionExpression=Key('ticker').eq(id),
-        ScanIndexForward= False
-    )
-    print('response-->', response)
-    for item in response['Items']:
-        print(item)
-    return response['Items']
-
+        
 
 def lambda_handler(event, context):
     """Sample pure Lambda function
@@ -89,19 +42,12 @@ def lambda_handler(event, context):
     API Gateway Lambda Proxy Output Format: dict
 
     """
+    try:
+        dynamodb = boto3.resource('dynamodb')
+        items = prices(tickers)
+        add_item(items)
 
-    dynamodb = boto3.resource('dynamodb')    
-    table_names = [table.name for table in dynamodb.tables.all()]
-
-    if table_name not in table_names:
-        create_table(table_name)
-    items = prices(tickers)
-    add_item(items)
-
-    return {
-        "statusCode": 200,
-        "body": json.dumps({
-            "message": "Here are the values of stock values" + str(prices(tickers))  ,
-            # "location": ip.text.replace("\n", "")
-        }),
-    }
+    except Exception as e:
+        print(e)
+        return "Exception!"
+    
