@@ -13,15 +13,15 @@ Globals:
     CodeUri: code/
 
 
-
-
-
-
-
 Parameters: 
   DynamoDBTableName:
     Default: 'stockprices'
     Description: Name of the DynamoDB table_name
+    Type: String
+  
+  CloudWatchSchedule:
+    Default: "rate(1 minute)"
+    Description: Schedule for cloudwatch events or cron jobs
     Type: String
 
   SenderEmail:
@@ -43,9 +43,6 @@ Parameters:
     Default: 5
     Description: Required percent change in the volatality
     Type: Number
-
-
-
 
 
 Resources:
@@ -167,9 +164,7 @@ Resources:
                   - ses:SendEmail
                   - ses:SendRawEmail
                 Resource: "*"
-              
-
-  
+            
 
   
   ServerlessWorkflowTable:
@@ -228,7 +223,7 @@ Resources:
     Type: AWS::Events::Rule
     Properties: 
       Description: "EventRule"
-      ScheduleExpression: rate(6 hours) 
+      ScheduleExpression: !Ref CloudWatchSchedule
       State: ENABLED
       Targets: 
         - Arn: !GetAtt SqsQueue.Arn

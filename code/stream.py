@@ -24,7 +24,7 @@ def ses_email(message):
     """
     ses = boto3.client('ses',region_name=AWS_REGION)
     CHARSET = "UTF-8"
-    SUBJECT = "Serverless-Workflow for Stocks and Crypto Volatality"
+    SUBJECT = "Serverless-Workflow for Stocks and Crypto Volatility"
     BODY    = """
 Hello, 
 
@@ -80,12 +80,12 @@ def query_prices(id):
     values = response['Items']
     return values  
 
-def find_volatality(values):
+def find_Volatility(values):
     """function to compare the prices
 
     Returns
     ------
-    Percentage of volatality
+    Percentage of Volatility
 
     """
     item_values = values[:2]
@@ -102,7 +102,7 @@ def find_volatality(values):
             increase = volatile_values[0] - volatile_values[1]
             increase_percent = int((increase/volatile_values[1])*100)
             if increase_percent > percent_change:
-                message = ("There is volatility in the market. The price of "+ ticker +" has raised by "+str(increase_percent)+"%" + " with current price " +str(volatile_values[0]))
+                message = ("There is volatility in the market. The price of "+ ticker +" has rised by "+str(increase_percent)+"%" + " with current price " +str(volatile_values[0]))
                 ses_email(message)
         elif volatile_values[0] == volatile_values[1]:
             pass
@@ -119,7 +119,7 @@ def handle_insert(record):
    
     Returns
     ------
-    Volatality
+    Volatility
 
     """
     newImage = record["dynamodb"]["NewImage"]
@@ -127,16 +127,16 @@ def handle_insert(record):
     newTickerPrice = newImage["price"]["N"]
     timestamp      = newImage["timestamp"]["N"]
     values = query_prices(ticker)
-    return find_volatality(values)
+    return find_Volatility(values)
 
 
 
 def lambda_handler(event, context):
-    """Lambda function to find the volatality
+    """Lambda function to find the Volatility
 
     Returns
     ------
-    volatality in percents
+    Volatility in percents
 
     """
     
