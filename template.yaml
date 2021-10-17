@@ -1,0 +1,254 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  lambda-serverless-workflow
+
+  SAM Template for lambda-serverless-workflow
+
+Globals:
+  Function:
+    Runtime: python3.8
+    Timeout: 60
+    MemorySize: 512
+    CodeUri: code/
+
+
+
+
+
+
+
+Parameters: 
+  DynamoDBTableName:
+    Default: 'stockprices'
+    Description: Name of the DynamoDB table_name
+    Type: String
+
+  SenderEmail:
+    Default: "Manideep <transformer0509@gmail.com>"
+    Description: Name and email of sender
+    Type: String
+  
+  RecipientEmail:
+    Default: "manideepreddy1116@gmail.com"
+    Description: Email of recipient
+    Type: String
+
+  Region:
+    Default: "us-east-1"
+    Description: AWS Region
+    Type: String
+
+  PercentChange:
+    Default: 5
+    Description: Required percent change in the volatality
+    Type: Number
+
+
+
+
+
+Resources:
+  ServerlessWorkflow:
+    Type: AWS::Serverless::Function 
+    Properties:
+      FunctionName: 'Serverless-Workflow-Lambda'
+      Handler: app.lambda_handler
+      Role: !GetAtt ServerlessWorkflowRole.Arn
+      Environment:
+        Variables: 
+          table_name: !Ref DynamoDBTableName
+          
+      
+
+  DynamoDBStreamFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      FunctionName: 'DynamoDB-Stream-Lambda'
+      Handler: stream.lambda_handler
+      Role: !GetAtt DynamoDBStreamRole.Arn
+      Environment:
+        Variables: 
+          sender: !Ref SenderEmail
+          table_name: !Ref DynamoDBTableName
+          region: !Ref Region
+          recipient: !Ref RecipientEmail
+          percent_change: !Ref PercentChange
+
+
+
+  
+  ServerlessWorkflowRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      RoleName: Serverless-Workflow-Role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: Serverless-Workflow-Policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow 
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+              - Effect: "Allow"
+                Action:
+                  - dynamodb:DeleteItem
+                  - dynamodb:DescribeTable
+                  - dynamodb:GetItem
+                  - dynamodb:GetRecords
+                  - dynamodb:ListTables
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:PutItem
+                  - dynamodb:CreateTable
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - sqs:ReceiveMessage
+                  - sqs:DeleteMessage
+                  - sqs:GetQueueAttributes
+                  - sqs:ChangeMessageVisibility
+                Resource: !GetAtt SqsQueue.Arn
+
+
+  
+  DynamoDBStreamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      RoleName: DynamoDB-Stream-Lambda-Role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DynamoDB-Stream-Lambda-Policy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow 
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+              - Effect: "Allow"
+                Action:
+                  - dynamodb:DeleteItem
+                  - dynamodb:DescribeTable
+                  - dynamodb:DescribeStream
+                  - dynamodb:GetItem
+                  - dynamodb:GetShardIterator
+                  - dynamodb:GetRecords
+                  - dynamodb:ListStreams
+                  - dynamodb:ListShards
+                  - dynamodb:ListTables
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                Resource: "*"
+              - Effect: Allow 
+                Action:
+                  - ses:SendEmail
+                  - ses:SendRawEmail
+                Resource: "*"
+              
+
+  
+
+  
+  ServerlessWorkflowTable:
+    Type: 'AWS::DynamoDB::Table'
+    DeletionPolicy: Retain
+    Properties:
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      TableName: !Ref DynamoDBTableName
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      AttributeDefinitions:
+        -
+          AttributeName: ticker
+          AttributeType: S
+        -
+          AttributeName: timestamp
+          AttributeType: N
+      KeySchema:
+        -
+          AttributeName: ticker
+          KeyType: HASH
+        -
+          AttributeName: timestamp
+          KeyType: RANGE
+
+  DynamoDBTableStream:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      # The maximum number of DB items to send to Lambda
+      BatchSize: 100  # It can be changed based on the need
+      Enabled: True
+      EventSourceArn: !GetAtt ServerlessWorkflowTable.StreamArn
+      FunctionName: !GetAtt DynamoDBStreamFunction.Arn
+      # Always start at the tail of the Stream
+      StartingPosition: LATEST
+ 
+  # SQS queue to trigger lambda
+  LambdaFunctionEventSourceMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      BatchSize: 10
+      Enabled: true
+      EventSourceArn: !GetAtt SqsQueue.Arn
+      FunctionName: !GetAtt ServerlessWorkflow.Arn
+
+  SqsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 0
+      VisibilityTimeout: 120
+
+ # Cloud watch event to trigger sqs
+  EventRule: 
+    Type: AWS::Events::Rule
+    Properties: 
+      Description: "EventRule"
+      ScheduleExpression: rate(6 hours) 
+      State: ENABLED
+      Targets: 
+        - Arn: !GetAtt SqsQueue.Arn
+          Id: ServerlessSQSqueue
+
+  # Allow EventBridge to invoke SQS
+  EventBridgeToToSqsPolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: events.amazonaws.com
+          Action: SQS:SendMessage
+          Resource:  !GetAtt SqsQueue.Arn
+      Queues:
+        - Ref: SqsQueue
+
+Outputs:
+  ServerlessWorkflowFunction:
+    Description: "Serverless Workflow Lambda Function ARN"
+    Value: !GetAtt ServerlessWorkflow.Arn
