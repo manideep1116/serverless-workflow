@@ -6,6 +6,7 @@ Description: >
   SAM Template for lambda-serverless-workflow
 
 Globals:
+  # common properties for both the lambda functions
   Function:
     Runtime: python3.8
     Timeout: 60
@@ -46,6 +47,7 @@ Parameters:
 
 
 Resources:
+  # Lambda function to add new data to table
   ServerlessWorkflow:
     Type: AWS::Serverless::Function 
     Properties:
@@ -57,7 +59,7 @@ Resources:
           table_name: !Ref DynamoDBTableName
           
       
-
+  # Second Lambda to query on dynamodb when new reord is added
   DynamoDBStreamFunction:
     Type: AWS::Serverless::Function 
     Properties:
@@ -74,7 +76,7 @@ Resources:
 
 
 
-  
+  # IAM role for app function
   ServerlessWorkflowRole:
     Type: AWS::IAM::Role
     Properties:
@@ -120,7 +122,7 @@ Resources:
                 Resource: !GetAtt SqsQueue.Arn
 
 
-  
+  # IAM role for stream function
   DynamoDBStreamRole:
     Type: AWS::IAM::Role
     Properties:
@@ -166,7 +168,7 @@ Resources:
                 Resource: "*"
             
 
-  
+  # DynamoDB table
   ServerlessWorkflowTable:
     Type: 'AWS::DynamoDB::Table'
     DeletionPolicy: Retain
@@ -191,7 +193,8 @@ Resources:
         -
           AttributeName: timestamp
           KeyType: RANGE
-
+  
+  # Strams to trigger lambda when new record  is added to  the table
   DynamoDBTableStream:
     Type: AWS::Lambda::EventSourceMapping
     Properties:
