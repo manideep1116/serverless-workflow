@@ -20,7 +20,7 @@ Parameters:
     Type: String
   
   CloudWatchSchedule:
-    Default: "rate(1 minute)"
+    Default: "rate(1 hour)"
     Description: Schedule for cloudwatch events or cron jobs
     Type: String
 
