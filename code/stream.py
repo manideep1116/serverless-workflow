@@ -11,7 +11,8 @@ RECIPIENT    = os.environ['recipient']
 
 AWS_REGION   = os.environ['region']
 
-percent_change = os.environ['percent_change']
+percent_change = int(os.environ['percent_change'])
+
 
 
 def ses_email(message):
@@ -80,7 +81,7 @@ def query_prices(id):
     values = response['Items']
     return values  
 
-def find_Volatility(values):
+def find_volatility(values):
     """function to compare the prices
 
     Returns
@@ -88,6 +89,7 @@ def find_Volatility(values):
     Percentage of Volatility
 
     """
+    print('I am here in volatile--->')
     item_values = values[:2]
     ticker = item_values[0]['ticker']
     volatile_values = []
@@ -127,11 +129,11 @@ def handle_insert(record):
     newTickerPrice = newImage["price"]["N"]
     timestamp      = newImage["timestamp"]["N"]
     values = query_prices(ticker)
-    return find_Volatility(values)
+    return find_volatility(values)
 
 
 
-def lambda_handler(event, context):
+def lambda_handler(event,context):
     """Lambda function to find the Volatility
 
     Returns
@@ -151,5 +153,5 @@ def lambda_handler(event, context):
         print(e)
         return "Exception!"
 
-# event = {'Records': [{'eventID': '1659f5ab548b4c50eea09477f61b8c20', 'eventName': 'INSERT', 'eventVersion': '1.1', 'eventSource': 'aws:dynamodb', 'awsRegion': 'us-east-1', 'dynamodb': {'ApproximateCreationDateTime': 1634164478.0, 'Keys': {'ticker': {'S': 'AMC'}, 'timestamp': {'N': '1634164477920'}}, 'NewImage': {'ticker': {'S': 'AMC'}, 'price': {'N': '110'}, 'timestamp': {'N': '1634164477920'}}, 'SequenceNumber': '800000000019080192835', 'SizeBytes': 59, 'StreamViewType': 'NEW_AND_OLD_IMAGES'}, 'eventSourceARN': 'arn:aws:dynamodb:us-east-1:962368282980:table/stockprices/stream/2021-10-13T22:31:24.749'}]}
+#event = {'Records': [{'eventID': '1659f5ab548b4c50eea09477f61b8c20', 'eventName': 'INSERT', 'eventVersion': '1.1', 'eventSource': 'aws:dynamodb', 'awsRegion': 'us-east-1', 'dynamodb': {'ApproximateCreationDateTime': 1634164478.0, 'Keys': {'ticker': {'S': 'AMC'}, 'timestamp': {'N': '1634164477920'}}, 'NewImage': {'ticker': {'S': 'AMC'}, 'price': {'N': '110'}, 'timestamp': {'N': '1634164477920'}}, 'SequenceNumber': '800000000019080192835', 'SizeBytes': 59, 'StreamViewType': 'NEW_AND_OLD_IMAGES'}, 'eventSourceARN': 'arn:aws:dynamodb:us-east-1:962368282980:table/stockprices/stream/2021-10-13T22:31:24.749'}]}
 
