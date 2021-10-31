@@ -138,7 +138,7 @@ def lambda_handler(event,context):
 
     Returns
     ------
-    Volatility in percents
+    Volatility in percent
 
     """
     
